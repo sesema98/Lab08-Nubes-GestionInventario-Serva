@@ -97,8 +97,8 @@ router.get(
           "Contraseña segura: mínimo 8 caracteres, mayúscula, número y carácter especial.",
           "JWT para la sesión.",
           "Bloqueo del usuario después de 5 intentos fallidos por 15 minutos.",
-          "MFA configurable dentro de la cuenta con email o TOTP.",
-          "TOTP real con QR estándar para apps de autenticación en celular.",
+          "MFA configurable dentro de la cuenta despues del login normal.",
+          "Al confirmar el QR se activan juntos TOTP y respaldo por email.",
           "Máximo 3 intentos para validar el MFA.",
         ],
         roles: {

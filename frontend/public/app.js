@@ -21,6 +21,7 @@ const state = {
   roles: [],
   users: [],
   products: [],
+  productAction: null,
   inventoryReport: null,
   auditLogs: [],
   auditSummary: null,
@@ -55,6 +56,7 @@ const refs = {
   moduleTitle: document.getElementById("moduleTitle"),
   refreshDashboardBtn: document.getElementById("refreshDashboardBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
+  actionNotice: document.getElementById("actionNotice"),
   sessionBadge: document.getElementById("sessionBadge"),
   sessionSummary: document.getElementById("sessionSummary"),
   authSessionPanel: document.getElementById("authSessionPanel"),
@@ -86,6 +88,7 @@ const refs = {
   adminCreateStoreSelect: document.getElementById("adminCreateStoreSelect"),
   adminCreateRolesSelect: document.getElementById("adminCreateRolesSelect"),
   userEditForm: document.getElementById("userEditForm"),
+  userEditPicker: document.getElementById("userEditPicker"),
   userEditId: document.getElementById("userEditId"),
   userEditEmail: document.getElementById("userEditEmail"),
   userEditFullName: document.getElementById("userEditFullName"),
@@ -108,8 +111,10 @@ const refs = {
   productFilterForm: document.getElementById("productFilterForm"),
   productFilterStoreSelect: document.getElementById("productFilterStoreSelect"),
   productCreateForm: document.getElementById("productCreateForm"),
+  createProductBtn: document.getElementById("createProductBtn"),
   productCreateStoreSelect: document.getElementById("productCreateStoreSelect"),
   productUpdateForm: document.getElementById("productUpdateForm"),
+  productSelectedSummary: document.getElementById("productSelectedSummary"),
   productUpdateId: document.getElementById("productUpdateId"),
   productUpdateName: document.getElementById("productUpdateName"),
   productUpdateDescription: document.getElementById("productUpdateDescription"),
@@ -133,11 +138,43 @@ const refs = {
 function appendLog(title, payload) {
   const timestamp = new Date().toLocaleTimeString("es-PE");
   const sanitizedPayload = sanitizeLogPayload(payload);
+  const friendlyMessage = getFriendlyMessage(title, sanitizedPayload);
+  const isError = title.toLowerCase().includes("error");
+  setNotice(friendlyMessage || getDefaultNotice(title, sanitizedPayload), isError ? "error" : "success");
   const content =
     typeof sanitizedPayload === "string"
       ? sanitizedPayload
       : JSON.stringify(sanitizedPayload, null, 2);
-  refs.consoleOutput.textContent = `[${timestamp}] ${title}\n${content}\n\n${refs.consoleOutput.textContent}`;
+  refs.consoleOutput.textContent = `[${timestamp}] ${title}\n${friendlyMessage ? `${friendlyMessage}\n` : ""}${content}\n\n${refs.consoleOutput.textContent}`;
+}
+
+function setNotice(message, type = "info") {
+  if (!refs.actionNotice || !message) {
+    return;
+  }
+  refs.actionNotice.textContent = message;
+  refs.actionNotice.className = `action-notice ${type}`;
+}
+
+function clearNotice() {
+  if (!refs.actionNotice) {
+    return;
+  }
+  refs.actionNotice.textContent = "";
+  refs.actionNotice.className = "action-notice hidden";
+}
+
+function getDefaultNotice(title, payload) {
+  if (title.toLowerCase().includes("error")) {
+    return payload?.error || payload?.message || "No se pudo completar la accion.";
+  }
+  if (title.toLowerCase().includes("filtro")) {
+    return "Filtro aplicado correctamente.";
+  }
+  if (title.toLowerCase().includes("cargando")) {
+    return "";
+  }
+  return payload?.message || "Accion completada.";
 }
 
 function sanitizeLogPayload(value) {
@@ -159,6 +196,31 @@ function sanitizeLogPayload(value) {
   }
 
   return value;
+}
+
+function getFriendlyMessage(title, payload) {
+  const text = typeof payload === "string" ? payload : payload?.error || payload?.message || "";
+  const normalizedTitle = title.toLowerCase();
+  const normalizedText = String(text).toLowerCase();
+
+  if (normalizedTitle.includes("login")) {
+    return normalizedText.includes("credenciales")
+      ? "No se pudo entrar: revisa correo y contraseña."
+      : "No se pudo completar el inicio de sesión.";
+  }
+  if (normalizedTitle.includes("email")) {
+    return "Si no llega el código, revisa SMTP. En laboratorio usa EMAIL_DELIVERY_MODE=preview.";
+  }
+  if (normalizedTitle.includes("mfa") || normalizedTitle.includes("totp")) {
+    if (normalizedText.includes("inválido") || normalizedText.includes("invalido")) {
+      return "El código no coincide. Espera uno nuevo e inténtalo otra vez.";
+    }
+    return "No se pudo completar MFA. Revisa que el método esté activo y que el código sea reciente.";
+  }
+  if (normalizedTitle.includes("qr")) {
+    return "No se pudo generar el QR. Inicia sesión de nuevo y vuelve a intentarlo.";
+  }
+  return "";
 }
 
 function saveSession() {
@@ -236,6 +298,40 @@ function hasRole(roleName) {
   return roleNames().includes(roleName);
 }
 
+function canManageRbac() {
+  return hasRole("Administrador");
+}
+
+function canReadUsers() {
+  return hasRole("Administrador") || hasRole("Auditor");
+}
+
+function canCreateProduct() {
+  return hasRole("Administrador") || hasRole("Gerente") || hasRole("Empleado");
+}
+
+function canUpdateProduct() {
+  return hasRole("Administrador") || hasRole("Gerente") || hasRole("Empleado");
+}
+
+function canDeleteProduct() {
+  return hasRole("Administrador") || hasRole("Gerente");
+}
+
+function canDeleteProductItem(product) {
+  if (hasRole("Administrador")) {
+    return true;
+  }
+  if (hasRole("Gerente")) {
+    return !product.isPremium;
+  }
+  return false;
+}
+
+function canViewAudit() {
+  return hasRole("Administrador") || hasRole("Auditor");
+}
+
 function ensureSession() {
   if (!state.token) {
     throw new Error("Debes iniciar sesión.");
@@ -252,6 +348,7 @@ function setAuthTab(tab) {
 
 function setModule(module) {
   state.currentModule = module;
+  clearNotice();
   refs.navButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.module === module);
   });
@@ -344,7 +441,7 @@ function renderChallenge() {
     .join("");
   refs.challengeSummary.textContent = state.autoOtpMode
     ? "Se envió un código OTP automáticamente. Solo ingrésalo para completar el acceso."
-    : `Challenge ${state.pendingChallengeId} expira en ${state.challengeExpiresAt}.`;
+    : "Elige el metodo activo, genera el codigo si es email, y escribelo antes de que expire.";
   refs.sendEmailCodeBtn.disabled = !state.pendingMethods.includes("email");
   refs.challengeActions.classList.toggle("hidden", state.autoOtpMode);
   refs.mfaMethodField.classList.toggle("hidden", state.autoOtpMode);
@@ -452,7 +549,7 @@ function renderSession() {
     refs.sessionBadge.className = "status-pill status-off";
     refs.authSessionPanel.innerHTML = "<p>No hay sesión activa.</p>";
     refs.mfaControlPanel.innerHTML = "<p>Inicia sesión para gestionar MFA.</p>";
-    refs.emailMfaSelect.value = "false";
+    refs.emailMfaSelect.value = "none";
     refs.startTotpSetupBtn.disabled = true;
     refs.disableTotpBtn.classList.add("hidden");
     state.totpSetup = null;
@@ -483,25 +580,64 @@ function renderSession() {
   `;
 
   refs.mfaControlPanel.innerHTML = `
-    <div class="detail-line"><span>Email MFA</span><strong>${state.currentUser.mfaEmailEnabled ? "Activo" : "Inactivo"}</strong></div>
-    <div class="detail-line"><span>TOTP</span><strong>${state.currentUser.mfaTotpEnabled ? "Activo" : "Pendiente"}</strong></div>
-    <div class="detail-line"><span>Enrolamiento QR</span><strong>${state.totpSetup ? "QR real generado, falta confirmar OTP." : "Pulsa Generar y mostrar QR para verlo aquí."}</strong></div>
-    <div class="detail-line"><span>Siguiente login</span><strong>${state.currentUser.mfaTotpEnabled ? "Pedirá OTP TOTP antes de ingresar." : "Solo pedirá OTP cuando actives un método MFA."}</strong></div>
+    <div class="detail-line"><span>Metodo actual</span><strong>${getCurrentMfaLabel()}</strong></div>
+    <div class="detail-line"><span>Para entrar</span><strong>${getCurrentMfaRequirement()}</strong></div>
+    <div class="detail-line"><span>Estado QR</span><strong>${getTotpStatusLabel()}</strong></div>
+    <div class="detail-line"><span>Aplicacion</span><strong>Google Authenticator o compatible.</strong></div>
+    ${
+      state.currentUser.mfaTotpEnabled
+        ? `<div class="inline-warning">OTP ya esta configurado. Si cambias el metodo MFA, se pedira confirmacion antes de quitar el QR actual.</div>`
+        : ""
+    }
   `;
 
-  refs.emailMfaSelect.value = state.currentUser.mfaEmailEnabled ? "true" : "false";
+  refs.emailMfaSelect.value = state.totpSetup
+    ? "totp"
+    : state.currentUser.mfaTotpEnabled
+    ? "totp"
+    : state.currentUser.mfaEmailEnabled
+      ? "email"
+      : "none";
   refs.startTotpSetupBtn.disabled = false;
   refs.disableTotpBtn.classList.toggle("hidden", !state.currentUser.mfaTotpEnabled);
   renderTotpSetup();
   renderAdminControls();
 
   refs.totpGuidePanel.innerHTML = `
-    <div class="detail-line"><span>1. Activación opcional</span><strong>Primero entra a tu cuenta. El MFA no se exige si no lo activas.</strong></div>
-    <div class="detail-line"><span>2. Genera el QR</span><strong>Hazlo dentro de esta cuenta con el botón Generar y mostrar QR.</strong></div>
-    <div class="detail-line"><span>3. Escanea</span><strong>Usa Google Authenticator, Microsoft Authenticator, Authy o una app TOTP compatible.</strong></div>
-    <div class="detail-line"><span>4. Confirma</span><strong>Ingresa el OTP actual del celular para dejar TOTP activado de forma real.</strong></div>
-    <div class="detail-line"><span>5. Reingreso</span><strong>${state.currentUser.mfaTotpEnabled ? "Tu próximo login pedirá OTP TOTP." : "Hasta confirmar el OTP, tu cuenta todavía no exige TOTP."}</strong></div>
+    <div class="detail-line"><span>Opcion principal</span><strong>OTP con Google Authenticator.</strong></div>
+    <div class="detail-line"><span>Necesitas</span><strong>Celular con Google Authenticator instalado.</strong></div>
+    <div class="detail-line"><span>Si ya esta activo</span><strong>No generes otro QR; solo usa el codigo de la app al entrar.</strong></div>
   `;
+}
+
+function getTotpStatusLabel() {
+  if (state.currentUser?.mfaTotpEnabled) {
+    return "Activo. Ya puedes usar tu app para entrar.";
+  }
+  if (state.totpSetup) {
+    return "QR generado. Falta confirmar el codigo.";
+  }
+  return "Pendiente. Guarda OTP para generar el QR.";
+}
+
+function getCurrentMfaLabel() {
+  if (state.currentUser?.mfaTotpEnabled) {
+    return "OTP con app";
+  }
+  if (state.currentUser?.mfaEmailEnabled) {
+    return "Codigo por email";
+  }
+  return "Sin MFA";
+}
+
+function getCurrentMfaRequirement() {
+  if (state.currentUser?.mfaTotpEnabled) {
+    return "Contraseña + codigo de la app.";
+  }
+  if (state.currentUser?.mfaEmailEnabled) {
+    return "Contraseña + codigo del correo.";
+  }
+  return "Solo contraseña.";
 }
 
 function renderAuthRequirements() {
@@ -510,8 +646,13 @@ function renderAuthRequirements() {
     return;
   }
   refs.authRequirementsPanel.innerHTML = state.bootstrap.policies.authentication
+    .slice(0, 4)
     .map((rule) => `<div class="detail-line"><span>${rule}</span></div>`)
-    .join("");
+    .join("") +
+    `
+      <div class="detail-line"><span>Email no llega</span><strong>Configura SMTP o usa preview.</strong></div>
+      <div class="detail-line"><span>OTP falla</span><strong>Revisa hora del celular o genera otro QR.</strong></div>
+    `;
 }
 
 function renderMatrix(headers, rows) {
@@ -644,7 +785,7 @@ function renderCurrentAbacCapabilities() {
 }
 
 function renderAdminControls() {
-  const isAdmin = hasRole("Administrador");
+  const isAdmin = canManageRbac();
   [
     refs.roleCreateForm,
     refs.roleEditForm,
@@ -655,6 +796,60 @@ function renderAdminControls() {
   ].forEach((element) => {
     element.classList.toggle("hidden", !isAdmin);
   });
+
+  refs.productCreateForm.classList.toggle("hidden", !canCreateProduct());
+  refs.productUpdateForm.classList.toggle("hidden", !canUpdateProduct());
+  refs.productDeleteForm.classList.toggle("hidden", !canDeleteProduct());
+  refs.createProductBtn.classList.toggle("hidden", !canCreateProduct());
+  refs.auditFilterForm.classList.toggle("hidden", !canViewAudit());
+  refs.refreshAuditBtn.classList.toggle("hidden", !canViewAudit());
+  updateProductFormVisibility();
+  showProductAction(state.productAction);
+}
+
+function setFieldVisible(field, visible) {
+  const wrapper = field?.closest("label");
+  if (wrapper) {
+    wrapper.classList.toggle("hidden", !visible);
+  }
+}
+
+function updateProductFormVisibility() {
+  const employeeOnly = hasRole("Empleado") && !hasRole("Administrador") && !hasRole("Gerente");
+  const managerOnly = hasRole("Gerente") && !hasRole("Administrador");
+
+  setFieldVisible(refs.productUpdateName, !employeeOnly);
+  setFieldVisible(refs.productUpdateDescription, !employeeOnly);
+  setFieldVisible(refs.productUpdatePrice, !employeeOnly);
+  setFieldVisible(refs.productUpdateCategory, !employeeOnly && !managerOnly);
+  setFieldVisible(refs.productUpdateStoreSelect, hasRole("Administrador"));
+  setFieldVisible(refs.productUpdatePremium, !employeeOnly);
+
+  const createPremiumLabel = refs.productCreateForm.querySelector("[name='isPremium']")?.closest("label");
+  createPremiumLabel?.classList.toggle("hidden", !hasRole("Administrador") && !hasRole("Gerente"));
+
+  if (state.currentUser && !hasRole("Administrador")) {
+    refs.productCreateStoreSelect.value = String(state.currentUser.storeId);
+    refs.productUpdateStoreSelect.value = "";
+    setFieldVisible(refs.productCreateStoreSelect, false);
+  } else {
+    setFieldVisible(refs.productCreateStoreSelect, true);
+  }
+}
+
+function showProductAction(action) {
+  state.productAction = action;
+  refs.productCreateForm.classList.toggle("hidden", action !== "create" || !canCreateProduct());
+  refs.productUpdateForm.classList.toggle("hidden", action !== "update" || !canUpdateProduct());
+  refs.productDeleteForm.classList.add("hidden");
+
+  const target =
+    action === "create"
+      ? refs.productCreateForm
+      : action === "update"
+        ? refs.productUpdateForm
+        : null;
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderRolesTable() {
@@ -673,7 +868,7 @@ function renderRolesTable() {
                 <td>${role.id}</td>
                 <td>${role.name}</td>
                 <td>${role.description}</td>
-                <td><button class="chip-button" type="button" data-role-id="${role.id}">Seleccionar</button></td>
+                <td>${canManageRbac() ? `<button class="chip-button" type="button" data-role-id="${role.id}">Editar</button>` : "Solo lectura"}</td>
               </tr>
             `
           )
@@ -699,7 +894,7 @@ function renderUsersTable(message) {
                 <td>${user.fullName}</td>
                 <td>${user.store.name}</td>
                 <td>${user.roles.join(", ")}</td>
-                <td><button class="chip-button" type="button" data-user-id="${user.id}">Seleccionar</button></td>
+                <td>${canManageRbac() ? `<button class="chip-button" type="button" data-user-id="${user.id}">Seleccionar</button>` : "Solo lectura"}</td>
               </tr>
             `
           )
@@ -725,7 +920,13 @@ function renderProductsTable(message) {
                 <td>${formatCurrency(product.price)}</td>
                 <td>${product.stock}</td>
                 <td>${product.isPremium ? "Sí" : "No"}</td>
-                <td><button class="chip-button" type="button" data-product-id="${product.id}">Seleccionar</button></td>
+                <td>
+                  <div class="row-actions">
+                    ${canUpdateProduct() ? `<button class="chip-button" type="button" data-product-edit="${product.id}">Editar</button>` : ""}
+                    ${canDeleteProductItem(product) ? `<button class="chip-button danger-chip" type="button" data-product-delete="${product.id}">Eliminar</button>` : ""}
+                    ${!canUpdateProduct() && !canDeleteProductItem(product) ? "Solo lectura" : ""}
+                  </div>
+                </td>
               </tr>
             `
           )
@@ -874,6 +1075,12 @@ function fillRoleSelects() {
     .join("");
   refs.adminCreateRolesSelect.innerHTML = roleOptions;
   refs.assignRoleRoleSelect.innerHTML = roleOptions;
+  const employeeOption = Array.from(refs.adminCreateRolesSelect.options).find(
+    (option) => option.value === "Empleado"
+  );
+  if (employeeOption) {
+    employeeOption.selected = true;
+  }
 }
 
 function fillUserSelects() {
@@ -882,6 +1089,17 @@ function fillUserSelects() {
     .join("");
   refs.assignRoleUserSelect.innerHTML = options;
   refs.removeRoleUserSelect.innerHTML = options;
+  refs.userEditPicker.innerHTML = `<option value="">Selecciona un usuario</option>${options}`;
+  updateRemoveRoleOptions(refs.removeRoleUserSelect.value);
+}
+
+function updateRemoveRoleOptions(userId) {
+  const user = state.users.find((item) => String(item.id) === String(userId));
+  refs.removeRoleRoleId.innerHTML = user?.roleDetails?.length
+    ? user.roleDetails
+        .map((role) => `<option value="${role.id}">${role.name}</option>`)
+        .join("")
+    : `<option value="">Sin roles asignados</option>`;
 }
 
 function populateRole(roleId) {
@@ -892,6 +1110,7 @@ function populateRole(roleId) {
   refs.roleEditId.value = role.id;
   refs.roleEditName.value = role.name;
   refs.roleEditDescription.value = role.description;
+  setNotice(`Rol "${role.name}" cargado para edición.`, "info");
 }
 
 function populateUser(userId) {
@@ -900,10 +1119,17 @@ function populateUser(userId) {
     return;
   }
   refs.userEditId.value = user.id;
+  refs.userEditPicker.value = String(user.id);
   refs.userEditEmail.value = user.email;
   refs.userEditFullName.value = user.fullName;
+  refs.userEditStoreSelect.value = String(user.storeId);
+  refs.userEditForm.elements.active.value = user.active ? "true" : "false";
+  refs.userEditForm.elements.password.value = "";
   refs.assignRoleUserSelect.value = String(user.id);
   refs.removeRoleUserSelect.value = String(user.id);
+  updateRemoveRoleOptions(user.id);
+  setNotice(`Usuario ${user.email} cargado para edición.`, "info");
+  refs.userEditForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function populateProduct(productId) {
@@ -918,6 +1144,34 @@ function populateProduct(productId) {
   refs.productUpdateStock.value = product.stock;
   refs.productUpdateCategory.value = product.category;
   refs.productDeleteId.value = product.id;
+  refs.productSelectedSummary.innerHTML = `
+    <strong>${product.name}</strong>
+    <span>${product.store.name} · ${product.category} · Stock ${product.stock}</span>
+  `;
+  if (hasRole("Gerente") && !hasRole("Administrador") && product.isPremium) {
+    setNotice("Este producto es premium. Un gerente puede verlo y editarlo, pero no eliminarlo.", "info");
+  } else {
+    setNotice(`Producto "${product.name}" cargado para editar.`, "info");
+  }
+}
+
+async function deleteProductById(productId) {
+  const product = state.products.find((item) => item.id === productId);
+  if (!product) {
+    setNotice("Producto no encontrado en la lista actual.", "error");
+    return;
+  }
+  if (!canDeleteProductItem(product)) {
+    setNotice("Tu cuenta no puede eliminar este producto.", "error");
+    return;
+  }
+  const confirmed = window.confirm(`¿Eliminar "${product.name}"? Esta accion no se puede deshacer.`);
+  if (!confirmed) {
+    setNotice("Eliminacion cancelada.", "info");
+    return;
+  }
+  refs.productDeleteId.value = product.id;
+  await handleDeleteProduct(new Event("submit"));
 }
 
 async function loadBootstrap() {
@@ -1005,6 +1259,7 @@ async function loadProducts(filters = {}) {
     const result = await api(`/api/products${params.toString() ? `?${params}` : ""}`);
     state.products = result.products;
     renderProductsTable();
+    renderAdminControls();
   } catch (error) {
     state.products = [];
     renderProductsTable(error.error || "No se pudieron cargar productos.");
@@ -1059,8 +1314,8 @@ async function completeLogin(result) {
   state.totpSetupError = "";
   state.totpQrRenderFailed = false;
   clearChallenge();
-  toggleAppShell();
   applyCurrentUser(result.user);
+  toggleAppShell();
   await refreshDashboardData();
   setModule("auth");
 }
@@ -1172,22 +1427,97 @@ async function handleEmailMfaPreference(event) {
   event.preventDefault();
   try {
     ensureSession();
-    const result = await api("/api/auth/mfa/email", {
+    const selectedMethod = refs.emailMfaSelect.value;
+
+    if (selectedMethod === "email") {
+      if (state.currentUser.mfaEmailEnabled && !state.currentUser.mfaTotpEnabled) {
+        setNotice("MFA por email ya esta activo. No se hizo ningun cambio.", "info");
+        return;
+      }
+      if (state.currentUser.mfaTotpEnabled) {
+        const confirmed = window.confirm(
+          "Ya tienes OTP con app configurado. Si cambias a email, se desactivara el QR actual. ¿Estas seguro?"
+        );
+        if (!confirmed) {
+          refs.emailMfaSelect.value = "totp";
+          setNotice("Se mantuvo OTP con app como metodo MFA.", "info");
+          return;
+        }
+        await api("/api/auth/mfa/totp", { method: "DELETE" });
+      }
+      const result = await api("/api/auth/mfa/email", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: true }),
+      });
+      state.totpSetup = null;
+      state.totpSetupError = "";
+      state.totpQrRenderFailed = false;
+      applyCurrentUser(result.user);
+      appendLog("MFA por email activado", result);
+      return;
+    }
+
+    if (selectedMethod === "totp") {
+      if (state.currentUser.mfaTotpEnabled) {
+        setNotice("OTP con app ya esta activo. No necesitas generar otro QR; usa Google Authenticator al iniciar sesion.", "info");
+        return;
+      }
+      if (state.totpSetup) {
+        setNotice("Ya tienes un QR pendiente. Escanealo con Google Authenticator y confirma el codigo.", "info");
+        refs.totpSetupPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      await api("/api/auth/mfa/email", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: false }),
+      });
+      await handleStartTotpSetup();
+      appendLog("Configura OTP", "Escanea el QR y confirma el codigo de tu app.");
+      return;
+    }
+
+    let result = null;
+    if (!state.currentUser.mfaTotpEnabled && !state.currentUser.mfaEmailEnabled && !state.totpSetup) {
+      setNotice("MFA ya esta desactivado. No se hizo ningun cambio.", "info");
+      return;
+    }
+    if (state.currentUser.mfaTotpEnabled) {
+      const confirmed = window.confirm(
+        "Ya tienes OTP con app configurado. Si continuas, se desactivara MFA para esta cuenta. ¿Estas seguro?"
+      );
+      if (!confirmed) {
+        refs.emailMfaSelect.value = "totp";
+        setNotice("Se mantuvo OTP con app como metodo MFA.", "info");
+        return;
+      }
+      result = await api("/api/auth/mfa/totp", { method: "DELETE" });
+    }
+    result = await api("/api/auth/mfa/email", {
       method: "PUT",
-      body: JSON.stringify({
-        enabled: refs.emailMfaSelect.value === "true",
-      }),
+      body: JSON.stringify({ enabled: false }),
     });
+    state.totpSetup = null;
+    state.totpSetupError = "";
+    state.totpQrRenderFailed = false;
     applyCurrentUser(result.user);
-    appendLog("Preferencia MFA email actualizada", result);
+    appendLog("MFA desactivado", result);
   } catch (error) {
-    appendLog("Error actualizando MFA email", error);
+    appendLog("Error actualizando MFA", error);
   }
 }
 
 async function handleStartTotpSetup() {
   try {
     ensureSession();
+    if (state.currentUser.mfaTotpEnabled) {
+      setNotice("OTP con app ya esta activo. No necesitas generar otro QR.", "info");
+      return;
+    }
+    if (state.totpSetup) {
+      setNotice("Ya tienes un QR pendiente. Escanealo con Google Authenticator y confirma el codigo.", "info");
+      refs.totpSetupPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const result = await api("/api/auth/mfa/totp/setup", {
       method: "POST",
     });
@@ -1235,7 +1565,7 @@ async function handleConfirmTotp(event) {
     state.totpQrRenderFailed = false;
     applyCurrentUser(result.user);
     form.reset();
-    appendLog("TOTP activado", result);
+    appendLog("MFA activado", result);
   } catch (error) {
     appendLog("Error confirmando TOTP", error);
   }
@@ -1251,7 +1581,7 @@ async function handleDisableTotp() {
     state.totpSetupError = "";
     state.totpQrRenderFailed = false;
     applyCurrentUser(result.user);
-    appendLog("TOTP deshabilitado", result);
+    appendLog("MFA deshabilitado", result);
   } catch (error) {
     appendLog("Error deshabilitando TOTP", error);
   }
@@ -1259,6 +1589,10 @@ async function handleDisableTotp() {
 
 async function handleCreateRole(event) {
   event.preventDefault();
+  if (!canManageRbac()) {
+    setNotice("No puedes crear roles con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const form = event.currentTarget;
@@ -1278,6 +1612,14 @@ async function handleCreateRole(event) {
 
 async function handleUpdateRole(event) {
   event.preventDefault();
+  if (!canManageRbac()) {
+    setNotice("No puedes actualizar roles con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
+  if (!refs.roleEditId.value) {
+    setNotice("Primero selecciona un rol de la tabla para actualizarlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const result = await api(`/api/roles/${refs.roleEditId.value}`, {
@@ -1295,6 +1637,14 @@ async function handleUpdateRole(event) {
 }
 
 async function handleDeleteRole() {
+  if (!canManageRbac()) {
+    setNotice("No puedes eliminar roles con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
+  if (!refs.roleEditId.value) {
+    setNotice("Primero selecciona un rol de la tabla para eliminarlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const result = await api(`/api/roles/${refs.roleEditId.value}`, {
@@ -1309,6 +1659,10 @@ async function handleDeleteRole() {
 
 async function handleCreateUser(event) {
   event.preventDefault();
+  if (!canManageRbac()) {
+    setNotice("No puedes crear usuarios con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const form = event.currentTarget;
@@ -1331,6 +1685,14 @@ async function handleCreateUser(event) {
 
 async function handleUpdateUser(event) {
   event.preventDefault();
+  if (!canManageRbac()) {
+    setNotice("No puedes actualizar usuarios con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
+  if (!refs.userEditId.value) {
+    setNotice("Primero selecciona un usuario de la tabla para actualizarlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const form = event.currentTarget;
@@ -1361,6 +1723,14 @@ async function handleUpdateUser(event) {
 }
 
 async function handleDeactivateUser() {
+  if (!canManageRbac()) {
+    setNotice("No puedes desactivar usuarios con esta cuenta. Solo Administrador puede hacerlo.", "error");
+    return;
+  }
+  if (!refs.userEditId.value) {
+    setNotice("Primero selecciona un usuario de la tabla para desactivarlo.", "error");
+    return;
+  }
   try {
     ensureSession();
     const result = await api(`/api/users/${refs.userEditId.value}`, {
@@ -1394,6 +1764,10 @@ async function handleRemoveRole(event) {
   event.preventDefault();
   try {
     ensureSession();
+    if (!refs.removeRoleRoleId.value) {
+      setNotice("Ese usuario no tiene roles disponibles para retirar.", "error");
+      return;
+    }
     const result = await api(
       `/api/users/${refs.removeRoleUserSelect.value}/roles/${refs.removeRoleRoleId.value}`,
       { method: "DELETE" }
@@ -1426,6 +1800,10 @@ async function handleFilterProducts(event) {
 
 async function handleCreateProduct(event) {
   event.preventDefault();
+  if (!canCreateProduct()) {
+    setNotice("No puedes crear productos con esta cuenta.", "error");
+    return;
+  }
   try {
     ensureSession();
     const form = event.currentTarget;
@@ -1437,8 +1815,8 @@ async function handleCreateProduct(event) {
         price: Number(form.price.value),
         stock: Number(form.stock.value),
         category: form.category.value,
-        storeId: Number(form.storeId.value),
-        isPremium: form.isPremium.checked,
+        storeId: hasRole("Administrador") ? Number(form.storeId.value) : state.currentUser.storeId,
+        isPremium: hasRole("Empleado") && !hasRole("Administrador") && !hasRole("Gerente") ? false : form.isPremium.checked,
       }),
     });
     appendLog("Producto creado", result);
@@ -1450,19 +1828,29 @@ async function handleCreateProduct(event) {
 
 async function handleUpdateProduct(event) {
   event.preventDefault();
+  if (!canUpdateProduct()) {
+    setNotice("No puedes actualizar productos con esta cuenta.", "error");
+    return;
+  }
   try {
     ensureSession();
     const form = event.currentTarget;
     const payload = {};
-    const fields = {
-      name: optionalValue(form.name.value),
-      description: optionalValue(form.description.value),
-      price: optionalValue(form.price.value),
-      stock: optionalValue(form.stock.value),
-      category: optionalValue(form.category.value),
-      storeId: optionalValue(form.storeId.value),
-      isPremium: optionalValue(form.isPremium.value),
-    };
+    const employeeOnly = hasRole("Empleado") && !hasRole("Administrador") && !hasRole("Gerente");
+    const managerOnly = hasRole("Gerente") && !hasRole("Administrador");
+    const fields = employeeOnly
+      ? {
+          stock: optionalValue(form.stock.value),
+        }
+      : {
+          name: optionalValue(form.name.value),
+          description: optionalValue(form.description.value),
+          price: optionalValue(form.price.value),
+          stock: optionalValue(form.stock.value),
+          category: managerOnly ? undefined : optionalValue(form.category.value),
+          storeId: hasRole("Administrador") ? optionalValue(form.storeId.value) : undefined,
+          isPremium: optionalValue(form.isPremium.value),
+        };
 
     Object.entries(fields).forEach(([key, value]) => {
       if (value === undefined) {
@@ -1490,6 +1878,10 @@ async function handleUpdateProduct(event) {
 
 async function handleDeleteProduct(event) {
   event.preventDefault();
+  if (!canDeleteProduct()) {
+    setNotice("No puedes eliminar productos con esta cuenta.", "error");
+    return;
+  }
   try {
     ensureSession();
     const result = await api(`/api/products/${refs.productDeleteId.value}`, {
@@ -1504,6 +1896,10 @@ async function handleDeleteProduct(event) {
 
 async function handleFilterAudit(event) {
   event.preventDefault();
+  if (!canViewAudit()) {
+    setNotice("No puedes consultar auditoria con esta cuenta. Solo Administrador o Auditor.", "error");
+    return;
+  }
   try {
     const form = event.currentTarget;
     await loadAudit({
@@ -1532,6 +1928,7 @@ function logout() {
   state.roles = [];
   state.users = [];
   state.products = [];
+  state.productAction = null;
   state.inventoryReport = null;
   state.auditLogs = [];
   state.auditSummary = null;
@@ -1577,7 +1974,22 @@ function bindTableSelectors() {
     const productButton = event.target.closest("[data-product-id]");
     if (productButton) {
       populateProduct(Number(productButton.dataset.productId));
+      showProductAction("update");
       setModule("abac");
+      return;
+    }
+
+    const productEditButton = event.target.closest("[data-product-edit]");
+    if (productEditButton) {
+      populateProduct(Number(productEditButton.dataset.productEdit));
+      showProductAction("update");
+      setModule("abac");
+      return;
+    }
+
+    const productDeleteButton = event.target.closest("[data-product-delete]");
+    if (productDeleteButton) {
+      deleteProductById(Number(productDeleteButton.dataset.productDelete));
     }
   });
 }
@@ -1590,6 +2002,18 @@ function bindEvents() {
   refs.sendEmailCodeBtn.addEventListener("click", handleSendEmailCode);
   refs.verifyMfaForm.addEventListener("submit", handleVerifyMfa);
   refs.emailMfaForm.addEventListener("submit", handleEmailMfaPreference);
+  refs.emailMfaSelect.addEventListener("change", (event) => {
+    if (!state.currentUser?.mfaTotpEnabled || event.currentTarget.value === "totp") {
+      return;
+    }
+    const confirmed = window.confirm(
+      "Ya tienes OTP con app configurado. Si cambias el metodo MFA, se quitara el QR actual. ¿Estas seguro?"
+    );
+    if (!confirmed) {
+      event.currentTarget.value = "totp";
+      setNotice("Se mantuvo OTP con app como metodo MFA.", "info");
+    }
+  });
   refs.startTotpSetupBtn.addEventListener("click", handleStartTotpSetup);
   refs.disableTotpBtn.addEventListener("click", handleDisableTotp);
   refs.confirmTotpForm.addEventListener("submit", handleConfirmTotp);
@@ -1608,7 +2032,27 @@ function bindEvents() {
   refs.deactivateUserBtn.addEventListener("click", handleDeactivateUser);
   refs.assignRoleForm.addEventListener("submit", handleAssignRole);
   refs.removeRoleForm.addEventListener("submit", handleRemoveRole);
+  refs.assignRoleUserSelect.addEventListener("change", (event) => {
+    populateUser(Number(event.currentTarget.value));
+  });
+  refs.userEditPicker.addEventListener("change", (event) => {
+    if (event.currentTarget.value) {
+      populateUser(Number(event.currentTarget.value));
+    }
+  });
+  refs.removeRoleUserSelect.addEventListener("change", (event) => {
+    populateUser(Number(event.currentTarget.value));
+    updateRemoveRoleOptions(event.currentTarget.value);
+  });
   refs.productFilterForm.addEventListener("submit", handleFilterProducts);
+  refs.createProductBtn.addEventListener("click", () => {
+    if (!canCreateProduct()) {
+      setNotice("Tu cuenta no puede crear productos.", "error");
+      return;
+    }
+    showProductAction("create");
+    setNotice("Completa los datos para crear un producto.", "info");
+  });
   refs.productCreateForm.addEventListener("submit", handleCreateProduct);
   refs.productUpdateForm.addEventListener("submit", handleUpdateProduct);
   refs.productDeleteForm.addEventListener("submit", handleDeleteProduct);

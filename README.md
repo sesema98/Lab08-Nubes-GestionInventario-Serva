@@ -73,9 +73,37 @@ Desde la misma página:
 
 ## SMTP real
 
-En `docker-compose.yml` el laboratorio queda en modo `preview` para que puedas probarlo sin depender de un proveedor externo.
+Por defecto el laboratorio queda en modo `preview`, para que puedas probar MFA por email sin depender de un proveedor externo.
 
-Si quieres envío real por correo, cambia estas variables en `security-service`:
+Si vas a usar **QR / OTP con Google Authenticator**, no necesitas configurar SMTP ni correo real.
+
+Si quieres correo real, no pongas credenciales directamente en `docker-compose.yml`. Usa un archivo `.env` local, porque `.env` está en `.gitignore` y no se sube a GitHub.
+
+1. Copia el ejemplo:
+
+```bash
+copy .env.example .env
+```
+
+2. Edita `.env` y coloca tus datos SMTP:
+
+```env
+EMAIL_DELIVERY_MODE=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=tu_correo@dominio.com
+SMTP_PASS=tu_app_password
+SMTP_FROM=tu_correo@dominio.com
+```
+
+3. Reinicia Docker:
+
+```bash
+docker compose up --build -d
+```
+
+Variables usadas por `security-service`:
 
 - `EMAIL_DELIVERY_MODE=smtp`
 - `SMTP_HOST`
@@ -85,7 +113,28 @@ Si quieres envío real por correo, cambia estas variables en `security-service`:
 - `SMTP_PASS`
 - `SMTP_FROM`
 
-Ejemplo típico con Gmail o Outlook usando una cuenta/app password válida.
+Ejemplo típico con Gmail o Google Workspace:
+
+- `SMTP_HOST=smtp.gmail.com`
+- `SMTP_PORT=587`
+- `SMTP_SECURE=false`
+- `SMTP_USER=tu_correo`
+- `SMTP_PASS=contraseña de aplicación`
+- `SMTP_FROM=tu_correo`
+
+Importante:
+
+- `SMTP_PASS` no suele ser tu contraseña normal, sino una contraseña de aplicación.
+- No subas `.env` a GitHub.
+- Si compartiste una contraseña por error, revócala y genera otra.
+- Si corres el proyecto en otra computadora y quieres email real, esa computadora también necesita su propio `.env`.
+- No hay forma de enviar correos reales sin alguna credencial SMTP o API key.
+
+Para volver al modo sin correo real:
+
+```env
+EMAIL_DELIVERY_MODE=preview
+```
 
 ## Endpoints principales
 

@@ -8,32 +8,15 @@
   </head>
   <body>
     <div id="authShell" class="auth-shell">
-      <div class="auth-hero">
-        <div class="auth-copy">
-          <p class="eyebrow">Desarrollo de Soluciones en la Nube</p>
-          <h1>TechStore Security Lab</h1>
-          <p class="lead">
-            Inicia sesión para entrar al laboratorio. El panel interno se divide
-            únicamente en lo que pide el documento: Autenticación, RBAC, ABAC y
-            Auditoría. El MFA es opcional y cada usuario lo activa desde su propia cuenta.
-          </p>
-        </div>
-
-        <div class="auth-meta-card">
-          <p class="eyebrow">MFA opcional</p>
-          <h2>Ruta simple: OTP por email</h2>
-          <ol class="steps-list">
-            <li>Registra tu cuenta e ingresa por primera vez.</li>
-            <li>Activa MFA por email desde Autenticación si quieres el flujo más simple.</li>
-            <li>En el siguiente login recibirás un OTP y solo tendrás que escribirlo.</li>
-            <li>TOTP con Google Authenticator queda disponible como opción avanzada.</li>
-          </ol>
-          <div id="authPolicyNote" class="policy-note"></div>
-        </div>
-      </div>
-
       <div class="auth-layout">
         <section class="auth-panel">
+          <div class="login-brand">
+            <p class="eyebrow">TechStore Security Lab</p>
+            <h1>Iniciar sesión</h1>
+            <p>Usa tu correo y contraseña. Si activaste MFA, se pedirá el segundo factor después.</p>
+            <div id="authPolicyNote" class="hidden"></div>
+          </div>
+
           <div class="auth-tabs">
             <button id="showLoginTabBtn" class="tab-button active" type="button">Iniciar sesión</button>
             <button id="showRegisterTabBtn" class="tab-button" type="button">Registrar cuenta</button>
@@ -43,7 +26,7 @@
             <div class="panel-header">
               <div>
                 <p class="module-kicker">Acceso</p>
-                <h2>Ingreso al sistema</h2>
+                <h2>Cuenta</h2>
               </div>
               <div id="demoLoginButtons" class="chip-row"></div>
             </div>
@@ -63,12 +46,12 @@
             <div id="challengePanel" class="challenge-panel hidden">
               <div class="panel-header compact">
                 <div>
-                  <p class="module-kicker">Segundo factor</p>
-                  <h3>Selecciona el método MFA</h3>
+                  <p class="module-kicker">Verificación</p>
+                  <h3>Segundo factor</h3>
                 </div>
                 <div id="challengeMethods" class="chip-row"></div>
               </div>
-              <p id="challengeSummary" class="muted-copy"></p>
+              <p id="challengeSummary" class="notice-panel"></p>
 
               <div id="challengeActions" class="inline-actions">
                 <button id="sendEmailCodeBtn" class="secondary-button" type="button">
@@ -140,12 +123,12 @@
           </div>
 
           <div class="side-block">
-            <p class="module-kicker">Qué verás después</p>
+            <p class="module-kicker">Módulos</p>
             <ul class="plain-list">
-              <li>Autenticación: sesión actual, seguridad y activación MFA.</li>
-              <li>RBAC: roles, usuarios y asignación de permisos.</li>
-              <li>ABAC: reglas sobre productos por tienda y atributos.</li>
-              <li>Auditoría: acciones permitidas y denegadas.</li>
+              <li>Autenticación: login y MFA.</li>
+              <li>RBAC: roles y usuarios.</li>
+              <li>ABAC: productos y reglas.</li>
+              <li>Auditoría: eventos del sistema.</li>
             </ul>
           </div>
         </section>
@@ -160,9 +143,9 @@
         </div>
 
         <nav class="dashboard-nav">
-          <button class="nav-button active" data-module="auth" type="button">Autenticación</button>
-          <button class="nav-button" data-module="rbac" type="button">RBAC</button>
-          <button class="nav-button" data-module="abac" type="button">ABAC</button>
+          <button class="nav-button active" data-module="auth" type="button">Login y MFA</button>
+          <button class="nav-button" data-module="rbac" type="button">Roles y usuarios</button>
+          <button class="nav-button" data-module="abac" type="button">Productos</button>
           <button class="nav-button" data-module="audit" type="button">Auditoría</button>
         </nav>
 
@@ -188,12 +171,14 @@
             <h2 id="moduleTitle">Autenticación</h2>
           </div>
           <p class="top-note">
-            El MFA no es obligatorio al crear la cuenta. Solo se solicita si el usuario lo activa desde Autenticación.
+            Elige un solo método MFA: código por email u OTP con app.
           </p>
         </header>
 
+        <div id="actionNotice" class="action-notice hidden"></div>
+
         <section id="module-auth" class="module-view active">
-          <div class="cards-grid two-columns">
+          <div class="cards-grid two-columns rbac-workspace">
             <article class="card">
               <div class="panel-header">
                 <div>
@@ -207,34 +192,28 @@
             <article class="card">
               <div class="panel-header">
                 <div>
-                  <p class="module-kicker">Seguridad de cuenta</p>
-                  <h3>Google Authenticator real</h3>
+                  <p class="module-kicker">Seguridad</p>
+                  <h3>Método de autenticación</h3>
                 </div>
               </div>
               <div id="mfaControlPanel" class="detail-stack"></div>
-              <div class="detail-stack separated-form">
-                <div class="detail-line">
-                  <span>QR real</span>
-                  <strong>Se genera aquí dentro de tu cuenta</strong>
-                </div>
-                <div class="detail-line">
-                  <span>App compatible</span>
-                  <strong>Google Authenticator, Microsoft Authenticator o Authy</strong>
-                </div>
+              <div class="notice-panel separated-form">
+                Para entrar necesitarás tu contraseña y el método que elijas aquí. Si algo falla, revisa el mensaje de la salida técnica.
               </div>
               <form id="emailMfaForm" class="stack-form separated-form">
                 <label>
-                  <span>MFA por email</span>
+                  <span>Método MFA</span>
                   <select id="emailMfaSelect" name="enabled">
-                    <option value="true">Activado</option>
-                    <option value="false">Desactivado</option>
+                    <option value="totp">OTP con app autenticadora</option>
+                    <option value="email">Código por email</option>
+                    <option value="none">Sin MFA</option>
                   </select>
                 </label>
-                <button type="submit">Guardar preferencia</button>
+                <button type="submit">Guardar método</button>
               </form>
-              <div class="inline-actions separated-form totp-actions">
-                <button id="startTotpSetupBtn" type="button">Generar y mostrar QR</button>
-                <button id="disableTotpBtn" class="danger-button" type="button">Desactivar TOTP</button>
+              <div class="inline-actions separated-form totp-actions hidden">
+                <button id="startTotpSetupBtn" type="button">Generar QR para Google Authenticator</button>
+                <button id="disableTotpBtn" class="danger-button" type="button">Quitar OTP</button>
               </div>
               <div id="totpSetupBlock" class="totp-setup-block hidden">
                 <div id="totpSetupPanel" class="totp-panel">
@@ -247,7 +226,7 @@
                       <span>OTP actual del autenticador</span>
                       <input name="code" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required />
                     </label>
-                    <button type="submit">Confirmar y activar TOTP</button>
+                    <button type="submit">Confirmar OTP</button>
                   </form>
                 </div>
               </div>
@@ -258,8 +237,8 @@
             <article class="card">
               <div class="panel-header">
                 <div>
-                  <p class="module-kicker">MFA TOTP</p>
-                  <h3>Cómo funciona en este laboratorio</h3>
+                  <p class="module-kicker">Ayuda</p>
+                  <h3>Qué necesitas para entrar</h3>
                 </div>
               </div>
               <div id="totpGuidePanel" class="detail-stack"></div>
@@ -268,8 +247,8 @@
             <article class="card">
               <div class="panel-header">
                 <div>
-                  <p class="module-kicker">Requisitos</p>
-                  <h3>Autenticación exigida por el documento</h3>
+                  <p class="module-kicker">Problemas comunes</p>
+                  <h3>Por qué puede fallar</h3>
                 </div>
               </div>
               <div id="authRequirementsPanel" class="detail-stack"></div>
@@ -309,6 +288,7 @@
                 </div>
                 <button id="refreshRolesBtn" class="ghost-button" type="button">Refrescar roles</button>
               </div>
+              <p class="form-hint">Selecciona un rol de la tabla para editarlo. Solo Administrador puede cambiar roles.</p>
               <div class="table-wrap">
                 <table>
                   <thead>
@@ -323,20 +303,22 @@
                 </table>
               </div>
               <form id="roleCreateForm" class="stack-form separated-form">
+                <p class="form-title">Crear rol</p>
                 <label>
                   <span>Nombre del rol</span>
-                  <input name="name" type="text" value="Supervisor" required />
+                  <input name="name" type="text" placeholder="Supervisor" required />
                 </label>
                 <label>
                   <span>Descripción</span>
-                  <input name="description" type="text" value="Rol temporal de prueba" required />
+                  <input name="description" type="text" placeholder="Describe qué puede hacer este rol" required />
                 </label>
                 <button type="submit">Crear rol</button>
               </form>
               <form id="roleEditForm" class="stack-form separated-form">
+                <p class="form-title">Editar rol seleccionado</p>
                 <label>
                   <span>ID Rol</span>
-                  <input id="roleEditId" name="id" type="number" required />
+                  <input id="roleEditId" name="id" type="number" placeholder="Selecciona un rol de la tabla" readonly required />
                 </label>
                 <label>
                   <span>Nombre</span>
@@ -361,6 +343,7 @@
                 </div>
                 <button id="refreshUsersBtn" class="ghost-button" type="button">Refrescar usuarios</button>
               </div>
+              <p class="form-hint">Selecciona un usuario de la tabla para cargar sus datos. Los roles se asignan con listas.</p>
               <div class="table-wrap">
                 <table>
                   <thead>
@@ -378,9 +361,10 @@
               </div>
 
               <form id="userCreateForm" class="stack-form separated-form">
+                <p class="form-title">Crear usuario</p>
                 <label>
                   <span>Email</span>
-                  <input name="email" type="email" required />
+                  <input name="email" type="email" placeholder="nuevo@techstore.com" required />
                 </label>
                 <label>
                   <span>Contraseña</span>
@@ -388,7 +372,7 @@
                 </label>
                 <label>
                   <span>Nombre completo</span>
-                  <input name="fullName" type="text" required />
+                  <input name="fullName" type="text" placeholder="Nombre Apellido" required />
                 </label>
                 <label>
                   <span>Tienda</span>
@@ -398,13 +382,19 @@
                   <span>Roles</span>
                   <select id="adminCreateRolesSelect" name="roles" multiple></select>
                 </label>
+                <p class="form-hint">Si no eliges rol, el sistema usará Empleado.</p>
                 <button type="submit">Crear usuario</button>
               </form>
 
-              <form id="userEditForm" class="stack-form separated-form">
+              <form id="userEditForm" class="stack-form separated-form focus-panel">
+                <p class="form-title">Editar usuario seleccionado</p>
+                <label>
+                  <span>Usuario a editar</span>
+                  <select id="userEditPicker" name="userPicker"></select>
+                </label>
                 <label>
                   <span>ID Usuario</span>
-                  <input id="userEditId" name="id" type="number" required />
+                  <input id="userEditId" name="id" type="number" placeholder="Selecciona un usuario de la tabla" readonly required />
                 </label>
                 <label>
                   <span>Email</span>
@@ -439,6 +429,7 @@
               </form>
 
               <form id="assignRoleForm" class="stack-form separated-form">
+                <p class="form-title">Asignar rol</p>
                 <label>
                   <span>Usuario</span>
                   <select id="assignRoleUserSelect" name="userId"></select>
@@ -451,13 +442,14 @@
               </form>
 
               <form id="removeRoleForm" class="stack-form separated-form">
+                <p class="form-title">Retirar rol</p>
                 <label>
                   <span>Usuario</span>
                   <select id="removeRoleUserSelect" name="userId"></select>
                 </label>
                 <label>
-                  <span>ID Rol a retirar</span>
-                  <input id="removeRoleRoleId" name="roleId" type="number" />
+                  <span>Rol actual a retirar</span>
+                  <select id="removeRoleRoleId" name="roleId"></select>
                 </label>
                 <button type="submit" class="danger-button">Retirar rol</button>
               </form>
@@ -543,7 +535,10 @@
                 <p class="module-kicker">Inventario</p>
                 <h3>CRUD de productos</h3>
               </div>
-              <button id="refreshProductsBtn" class="ghost-button" type="button">Refrescar productos</button>
+              <div class="inline-actions">
+                <button id="createProductBtn" type="button">Crear producto</button>
+                <button id="refreshProductsBtn" class="ghost-button" type="button">Refrescar productos</button>
+              </div>
             </div>
 
             <form id="productFilterForm" class="inline-filter">
@@ -586,7 +581,7 @@
               </table>
             </div>
 
-            <div class="cards-grid three-columns inner-grid">
+            <div class="cards-grid inner-grid product-actions-area">
               <form id="productCreateForm" class="stack-form soft-panel">
                 <p class="module-kicker">Crear</p>
                 <label><span>Nombre</span><input name="name" type="text" required /></label>
@@ -604,7 +599,8 @@
 
               <form id="productUpdateForm" class="stack-form soft-panel">
                 <p class="module-kicker">Actualizar</p>
-                <label><span>ID Producto</span><input id="productUpdateId" name="id" type="number" required /></label>
+                <div id="productSelectedSummary" class="selected-summary">Selecciona un producto de la tabla para editarlo.</div>
+                <label class="technical-field"><span>ID Producto</span><input id="productUpdateId" name="id" type="number" required readonly /></label>
                 <label><span>Nombre</span><input id="productUpdateName" name="name" type="text" /></label>
                 <label><span>Descripción</span><textarea id="productUpdateDescription" name="description" rows="3"></textarea></label>
                 <label><span>Precio</span><input id="productUpdatePrice" name="price" type="number" step="0.01" /></label>
@@ -624,7 +620,8 @@
 
               <form id="productDeleteForm" class="stack-form soft-panel">
                 <p class="module-kicker">Eliminar</p>
-                <label><span>ID Producto</span><input id="productDeleteId" name="id" type="number" required /></label>
+                <p class="form-hint">Usa el botÃ³n Eliminar de la fila del producto. Si no aparece, tu rol no puede eliminarlo.</p>
+                <label class="technical-field"><span>ID Producto</span><input id="productDeleteId" name="id" type="number" required readonly /></label>
                 <button type="submit" class="danger-button">Eliminar producto</button>
               </form>
             </div>
@@ -708,6 +705,6 @@
       </main>
     </div>
 
-    <script src="./app.js?v=20260507-totp-src-fix"></script>
+    <script src="./app.js?v=20260508-inventario-acciones-fila"></script>
   </body>
 </html>

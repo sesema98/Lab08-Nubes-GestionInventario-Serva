@@ -578,7 +578,7 @@ router.post(
     });
 
     res.json({
-      message: "TOTP activado correctamente.",
+      message: "OTP con app activado correctamente.",
       user: sanitizeUser(updated),
     });
   })
@@ -614,7 +614,7 @@ router.delete(
     });
 
     res.json({
-      message: "TOTP deshabilitado correctamente.",
+      message: "OTP con app deshabilitado correctamente.",
       user: sanitizeUser(updated),
     });
   })
