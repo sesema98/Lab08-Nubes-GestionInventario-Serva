@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TechStore Security Lab</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="authShell" class="auth-shell">
+      <div class="auth-hero">
+        <div class="auth-copy">
+          <p class="eyebrow">Desarrollo de Soluciones en la Nube</p>
+          <h1>TechStore Security Lab</h1>
+          <p class="lead">
+            Inicia sesión para entrar al laboratorio. El panel interno se divide
+            únicamente en lo que pide el documento: Autenticación, RBAC, ABAC y
+            Auditoría. El MFA es opcional y cada usuario lo activa desde su propia cuenta.
+          </p>
+        </div>
+
+        <div class="auth-meta-card">
+          <p class="eyebrow">MFA opcional</p>
+          <h2>Ruta simple: OTP por email</h2>
+          <ol class="steps-list">
+            <li>Registra tu cuenta e ingresa por primera vez.</li>
+            <li>Activa MFA por email desde Autenticación si quieres el flujo más simple.</li>
+            <li>En el siguiente login recibirás un OTP y solo tendrás que escribirlo.</li>
+            <li>TOTP con Google Authenticator queda disponible como opción avanzada.</li>
+          </ol>
+          <div id="authPolicyNote" class="policy-note"></div>
+        </div>
+      </div>
+
+      <div class="auth-layout">
+        <section class="auth-panel">
+          <div class="auth-tabs">
+            <button id="showLoginTabBtn" class="tab-button active" type="button">Iniciar sesión</button>
+            <button id="showRegisterTabBtn" class="tab-button" type="button">Registrar cuenta</button>
+          </div>
+
+          <div id="loginTab" class="tab-view active">
+            <div class="panel-header">
+              <div>
+                <p class="module-kicker">Acceso</p>
+                <h2>Ingreso al sistema</h2>
+              </div>
+              <div id="demoLoginButtons" class="chip-row"></div>
+            </div>
+
+            <form id="loginForm" class="stack-form">
+              <label>
+                <span>Email</span>
+                <input id="loginEmailInput" name="email" type="email" placeholder="gerente@techstore.com" required />
+              </label>
+              <label>
+                <span>Contraseña</span>
+                <input id="loginPasswordInput" name="password" type="password" value="TechStore2026!" required />
+              </label>
+              <button type="submit">Ingresar</button>
+            </form>
+
+            <div id="challengePanel" class="challenge-panel hidden">
+              <div class="panel-header compact">
+                <div>
+                  <p class="module-kicker">Segundo factor</p>
+                  <h3>Selecciona el método MFA</h3>
+                </div>
+                <div id="challengeMethods" class="chip-row"></div>
+              </div>
+              <p id="challengeSummary" class="muted-copy"></p>
+
+              <div id="challengeActions" class="inline-actions">
+                <button id="sendEmailCodeBtn" class="secondary-button" type="button">
+                  Enviar código por email
+                </button>
+              </div>
+
+              <form id="verifyMfaForm" class="stack-form">
+                <label id="mfaMethodField">
+                  <span>Método MFA</span>
+                  <select id="mfaMethodSelect" name="method"></select>
+                </label>
+                <label>
+                  <span>OTP / Código</span>
+                  <input name="code" type="text" maxlength="6" placeholder="123456" required />
+                </label>
+                <button type="submit">Validar MFA</button>
+              </form>
+
+              <div id="emailPreviewPanel" class="preview-panel hidden"></div>
+            </div>
+          </div>
+
+          <div id="registerTab" class="tab-view">
+            <div class="panel-header">
+              <div>
+                <p class="module-kicker">Parte 1</p>
+                <h2>Registro de usuario</h2>
+              </div>
+            </div>
+
+            <form id="registerForm" class="stack-form">
+              <label>
+                <span>Email único</span>
+                <input name="email" type="email" placeholder="nuevo@techstore.com" required />
+              </label>
+              <label>
+                <span>Contraseña segura</span>
+                <input name="password" type="password" placeholder="TechStore2026!" required />
+              </label>
+              <label>
+                <span>Nombre completo</span>
+                <input name="fullName" type="text" placeholder="Usuario Demo" required />
+              </label>
+              <label>
+                <span>Tienda asignada</span>
+                <select id="registerStoreSelect" name="storeId" required></select>
+              </label>
+              <button type="submit">Registrar cuenta</button>
+            </form>
+
+            <div class="detail-stack">
+              <div class="detail-line">
+                <span>Después del registro</span>
+                <strong>Activa MFA desde tu propia cuenta</strong>
+              </div>
+              <div class="detail-line">
+                <span>TOTP real</span>
+                <strong>Se habilita con QR + confirmación OTP</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="auth-side-panel">
+          <div class="side-block">
+            <p class="module-kicker">Usuarios de prueba</p>
+            <div id="seedUsersList" class="detail-stack"></div>
+          </div>
+
+          <div class="side-block">
+            <p class="module-kicker">Qué verás después</p>
+            <ul class="plain-list">
+              <li>Autenticación: sesión actual, seguridad y activación MFA.</li>
+              <li>RBAC: roles, usuarios y asignación de permisos.</li>
+              <li>ABAC: reglas sobre productos por tienda y atributos.</li>
+              <li>Auditoría: acciones permitidas y denegadas.</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="dashboardShell" class="dashboard-shell hidden">
+      <header class="dashboard-header">
+        <div class="dashboard-brand">
+          <p class="eyebrow">Panel Interno</p>
+          <h2>TechStore Security Lab</h2>
+        </div>
+
+        <nav class="dashboard-nav">
+          <button class="nav-button active" data-module="auth" type="button">Autenticación</button>
+          <button class="nav-button" data-module="rbac" type="button">RBAC</button>
+          <button class="nav-button" data-module="abac" type="button">ABAC</button>
+          <button class="nav-button" data-module="audit" type="button">Auditoría</button>
+        </nav>
+
+        <div class="dashboard-toolbar">
+          <div class="toolbar-card">
+            <div class="toolbar-meta">
+              <p class="module-kicker">Sesión</p>
+              <div id="sessionSummary" class="sidebar-summary"></div>
+            </div>
+            <div id="sessionBadge" class="status-pill status-on">Activa</div>
+          </div>
+          <div class="toolbar-actions">
+            <button id="refreshDashboardBtn" class="ghost-button" type="button">Refrescar</button>
+            <button id="logoutBtn" class="danger-button" type="button">Cerrar sesión</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard-main">
+        <header class="dashboard-topbar">
+          <div>
+            <p class="eyebrow">Módulo activo</p>
+            <h2 id="moduleTitle">Autenticación</h2>
+          </div>
+          <p class="top-note">
+            El MFA no es obligatorio al crear la cuenta. Solo se solicita si el usuario lo activa desde Autenticación.
+          </p>
+        </header>
+
+        <section id="module-auth" class="module-view active">
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Estado de cuenta</p>
+                  <h3>Tu sesión y tus factores</h3>
+                </div>
+              </div>
+              <div id="authSessionPanel" class="detail-stack"></div>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Seguridad de cuenta</p>
+                  <h3>Google Authenticator real</h3>
+                </div>
+              </div>
+              <div id="mfaControlPanel" class="detail-stack"></div>
+              <div class="detail-stack separated-form">
+                <div class="detail-line">
+                  <span>QR real</span>
+                  <strong>Se genera aquí dentro de tu cuenta</strong>
+                </div>
+                <div class="detail-line">
+                  <span>App compatible</span>
+                  <strong>Google Authenticator, Microsoft Authenticator o Authy</strong>
+                </div>
+              </div>
+              <form id="emailMfaForm" class="stack-form separated-form">
+                <label>
+                  <span>MFA por email</span>
+                  <select id="emailMfaSelect" name="enabled">
+                    <option value="true">Activado</option>
+                    <option value="false">Desactivado</option>
+                  </select>
+                </label>
+                <button type="submit">Guardar preferencia</button>
+              </form>
+              <div class="inline-actions separated-form totp-actions">
+                <button id="startTotpSetupBtn" type="button">Generar y mostrar QR</button>
+                <button id="disableTotpBtn" class="danger-button" type="button">Desactivar TOTP</button>
+              </div>
+              <div id="totpSetupBlock" class="totp-setup-block hidden">
+                <div id="totpSetupPanel" class="totp-panel">
+                  <h3>Escanea este QR con tu celular</h3>
+                  <p id="totpSetupError" class="totp-error hidden"></p>
+                  <img id="totpSetupQr" class="qr-image hidden" alt="QR TOTP de la cuenta actual" />
+                  <p id="totpSetupSecret" class="mono totp-secret hidden"></p>
+                  <form id="confirmTotpForm" class="stack-form totp-confirm-form">
+                    <label>
+                      <span>OTP actual del autenticador</span>
+                      <input name="code" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required />
+                    </label>
+                    <button type="submit">Confirmar y activar TOTP</button>
+                  </form>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">MFA TOTP</p>
+                  <h3>Cómo funciona en este laboratorio</h3>
+                </div>
+              </div>
+              <div id="totpGuidePanel" class="detail-stack"></div>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Requisitos</p>
+                  <h3>Autenticación exigida por el documento</h3>
+                </div>
+              </div>
+              <div id="authRequirementsPanel" class="detail-stack"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="module-rbac" class="module-view">
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">RBAC</p>
+                  <h3>Permisos por rol</h3>
+                </div>
+              </div>
+              <div id="rbacMatrixPanel" class="table-wrap"></div>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Roles del usuario actual</p>
+                  <h3>Lo que tu cuenta puede hacer</h3>
+                </div>
+              </div>
+              <div id="currentRoleCapabilitiesPanel" class="detail-stack"></div>
+            </article>
+          </div>
+
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Gestión de roles</p>
+                  <h3>CRUD de roles</h3>
+                </div>
+                <button id="refreshRolesBtn" class="ghost-button" type="button">Refrescar roles</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Nombre</th>
+                      <th>Descripción</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rolesTableBody"></tbody>
+                </table>
+              </div>
+              <form id="roleCreateForm" class="stack-form separated-form">
+                <label>
+                  <span>Nombre del rol</span>
+                  <input name="name" type="text" value="Supervisor" required />
+                </label>
+                <label>
+                  <span>Descripción</span>
+                  <input name="description" type="text" value="Rol temporal de prueba" required />
+                </label>
+                <button type="submit">Crear rol</button>
+              </form>
+              <form id="roleEditForm" class="stack-form separated-form">
+                <label>
+                  <span>ID Rol</span>
+                  <input id="roleEditId" name="id" type="number" required />
+                </label>
+                <label>
+                  <span>Nombre</span>
+                  <input id="roleEditName" name="name" type="text" required />
+                </label>
+                <label>
+                  <span>Descripción</span>
+                  <input id="roleEditDescription" name="description" type="text" required />
+                </label>
+                <div class="inline-actions">
+                  <button type="submit">Actualizar rol</button>
+                  <button id="deleteRoleBtn" class="danger-button" type="button">Eliminar rol</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Gestión de usuarios</p>
+                  <h3>CRUD y asignación de roles</h3>
+                </div>
+                <button id="refreshUsersBtn" class="ghost-button" type="button">Refrescar usuarios</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Email</th>
+                      <th>Nombre</th>
+                      <th>Tienda</th>
+                      <th>Roles</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTableBody"></tbody>
+                </table>
+              </div>
+
+              <form id="userCreateForm" class="stack-form separated-form">
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" required />
+                </label>
+                <label>
+                  <span>Contraseña</span>
+                  <input name="password" type="password" value="TechStore2026!" required />
+                </label>
+                <label>
+                  <span>Nombre completo</span>
+                  <input name="fullName" type="text" required />
+                </label>
+                <label>
+                  <span>Tienda</span>
+                  <select id="adminCreateStoreSelect" name="storeId" required></select>
+                </label>
+                <label>
+                  <span>Roles</span>
+                  <select id="adminCreateRolesSelect" name="roles" multiple></select>
+                </label>
+                <button type="submit">Crear usuario</button>
+              </form>
+
+              <form id="userEditForm" class="stack-form separated-form">
+                <label>
+                  <span>ID Usuario</span>
+                  <input id="userEditId" name="id" type="number" required />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input id="userEditEmail" name="email" type="email" />
+                </label>
+                <label>
+                  <span>Nombre completo</span>
+                  <input id="userEditFullName" name="fullName" type="text" />
+                </label>
+                <label>
+                  <span>Tienda</span>
+                  <select id="userEditStoreSelect" name="storeId"></select>
+                </label>
+                <label>
+                  <span>Nueva contraseña</span>
+                  <input name="password" type="password" placeholder="Opcional" />
+                </label>
+                <div class="inline-grid">
+                  <label>
+                    <span>Activo</span>
+                    <select name="active">
+                      <option value="">Sin cambio</option>
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="inline-actions">
+                  <button type="submit">Actualizar usuario</button>
+                  <button id="deactivateUserBtn" class="danger-button" type="button">Desactivar usuario</button>
+                </div>
+              </form>
+
+              <form id="assignRoleForm" class="stack-form separated-form">
+                <label>
+                  <span>Usuario</span>
+                  <select id="assignRoleUserSelect" name="userId"></select>
+                </label>
+                <label>
+                  <span>Rol a asignar</span>
+                  <select id="assignRoleRoleSelect" name="roleName"></select>
+                </label>
+                <button type="submit">Asignar rol</button>
+              </form>
+
+              <form id="removeRoleForm" class="stack-form separated-form">
+                <label>
+                  <span>Usuario</span>
+                  <select id="removeRoleUserSelect" name="userId"></select>
+                </label>
+                <label>
+                  <span>ID Rol a retirar</span>
+                  <input id="removeRoleRoleId" name="roleId" type="number" />
+                </label>
+                <button type="submit" class="danger-button">Retirar rol</button>
+              </form>
+            </article>
+          </div>
+        </section>
+
+        <section id="module-abac" class="module-view">
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">ABAC</p>
+                  <h3>Permisos sobre productos</h3>
+                </div>
+              </div>
+              <div id="abacMatrixPanel" class="table-wrap"></div>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Reglas activas</p>
+                  <h3>Qué debería ocurrir con tu rol</h3>
+                </div>
+              </div>
+              <div id="currentAbacCapabilitiesPanel" class="detail-stack"></div>
+            </article>
+          </div>
+
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Reportes</p>
+                  <h3>Resumen de inventario</h3>
+                </div>
+              </div>
+              <div id="reportScopePanel" class="detail-stack"></div>
+              <div class="table-wrap separated-form">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tienda</th>
+                      <th>Productos</th>
+                      <th>Premium</th>
+                      <th>Stock</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportStoreTableBody"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Reportes</p>
+                  <h3>Categorías y alertas</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Categoría</th>
+                      <th>Productos</th>
+                      <th>Stock</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportCategoryTableBody"></tbody>
+                </table>
+              </div>
+              <div id="reportLowStockPanel" class="detail-stack separated-form"></div>
+            </article>
+          </div>
+
+          <article class="card">
+            <div class="panel-header">
+              <div>
+                <p class="module-kicker">Inventario</p>
+                <h3>CRUD de productos</h3>
+              </div>
+              <button id="refreshProductsBtn" class="ghost-button" type="button">Refrescar productos</button>
+            </div>
+
+            <form id="productFilterForm" class="inline-filter">
+              <label>
+                <span>Tienda</span>
+                <select id="productFilterStoreSelect" name="storeId">
+                  <option value="">Todas</option>
+                </select>
+              </label>
+              <label>
+                <span>Categoría</span>
+                <input name="category" type="text" placeholder="Laptops" />
+              </label>
+              <label>
+                <span>Premium</span>
+                <select name="premium">
+                  <option value="">Todos</option>
+                  <option value="true">Sí</option>
+                  <option value="false">No</option>
+                </select>
+              </label>
+              <button type="submit">Filtrar</button>
+            </form>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Tienda</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th>Stock</th>
+                    <th>Premium</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="cards-grid three-columns inner-grid">
+              <form id="productCreateForm" class="stack-form soft-panel">
+                <p class="module-kicker">Crear</p>
+                <label><span>Nombre</span><input name="name" type="text" required /></label>
+                <label><span>Descripción</span><textarea name="description" rows="4" required></textarea></label>
+                <label><span>Precio</span><input name="price" type="number" step="0.01" required /></label>
+                <label><span>Stock</span><input name="stock" type="number" required /></label>
+                <label><span>Categoría</span><input name="category" type="text" required /></label>
+                <label><span>Tienda</span><select id="productCreateStoreSelect" name="storeId" required></select></label>
+                <label class="checkbox">
+                  <input name="isPremium" type="checkbox" />
+                  <span>Producto premium</span>
+                </label>
+                <button type="submit">Crear producto</button>
+              </form>
+
+              <form id="productUpdateForm" class="stack-form soft-panel">
+                <p class="module-kicker">Actualizar</p>
+                <label><span>ID Producto</span><input id="productUpdateId" name="id" type="number" required /></label>
+                <label><span>Nombre</span><input id="productUpdateName" name="name" type="text" /></label>
+                <label><span>Descripción</span><textarea id="productUpdateDescription" name="description" rows="3"></textarea></label>
+                <label><span>Precio</span><input id="productUpdatePrice" name="price" type="number" step="0.01" /></label>
+                <label><span>Stock</span><input id="productUpdateStock" name="stock" type="number" /></label>
+                <label><span>Categoría</span><input id="productUpdateCategory" name="category" type="text" /></label>
+                <label><span>Tienda</span><select id="productUpdateStoreSelect" name="storeId"><option value="">Sin cambio</option></select></label>
+                <label>
+                  <span>Premium</span>
+                  <select id="productUpdatePremium" name="isPremium">
+                    <option value="">Sin cambio</option>
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                  </select>
+                </label>
+                <button type="submit">Actualizar producto</button>
+              </form>
+
+              <form id="productDeleteForm" class="stack-form soft-panel">
+                <p class="module-kicker">Eliminar</p>
+                <label><span>ID Producto</span><input id="productDeleteId" name="id" type="number" required /></label>
+                <button type="submit" class="danger-button">Eliminar producto</button>
+              </form>
+            </div>
+          </article>
+        </section>
+
+        <section id="module-audit" class="module-view">
+          <div id="auditSummaryCards" class="cards-grid four-columns"></div>
+
+          <div class="cards-grid two-columns">
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Auditoría</p>
+                  <h3>Consultar eventos</h3>
+                </div>
+              </div>
+              <form id="auditFilterForm" class="stack-form">
+                <label><span>Límite</span><input name="limit" type="number" value="30" /></label>
+                <label>
+                  <span>Permitido</span>
+                  <select name="allowed">
+                    <option value="">Todos</option>
+                    <option value="true">Permitidos</option>
+                    <option value="false">Denegados</option>
+                  </select>
+                </label>
+                <label><span>User ID</span><input name="userId" type="number" /></label>
+                <label><span>Action</span><input name="action" type="text" placeholder="LOGIN_MFA_VERIFY" /></label>
+                <button type="submit">Consultar logs</button>
+              </form>
+            </article>
+
+            <article class="card">
+              <div class="panel-header">
+                <div>
+                  <p class="module-kicker">Resumen</p>
+                  <h3>Acciones más frecuentes</h3>
+                </div>
+              </div>
+              <div id="auditSummaryPanel" class="detail-stack"></div>
+            </article>
+          </div>
+
+          <article class="card">
+            <div class="panel-header">
+              <div>
+                <p class="module-kicker">Eventos recientes</p>
+                <h3>Log operativo</h3>
+              </div>
+              <button id="refreshAuditBtn" class="ghost-button" type="button">Refrescar auditoría</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Recurso</th>
+                    <th>Resultado</th>
+                    <th>Detalle</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <article class="response-card">
+          <div class="panel-header">
+            <div>
+              <p class="module-kicker">Última respuesta</p>
+              <h3>Salida técnica</h3>
+            </div>
+            <button id="clearConsoleBtn" class="ghost-button" type="button">Limpiar</button>
+          </div>
+          <pre id="consoleOutput" class="output-panel">Esperando acciones...</pre>
+        </article>
+      </main>
+    </div>
+
+    <script src="./app.js?v=20260507-totp-src-fix"></script>
+  </body>
+</html>

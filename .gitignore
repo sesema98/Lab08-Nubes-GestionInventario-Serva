@@ -1,0 +1,6 @@
+node_modules/
+security-service/node_modules/
+data/
+tmp/mailbox/
+tmp/mailbox-test/
+.env
