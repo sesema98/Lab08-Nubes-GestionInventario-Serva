@@ -112,6 +112,7 @@ const refs = {
   productFilterStoreSelect: document.getElementById("productFilterStoreSelect"),
   productCreateForm: document.getElementById("productCreateForm"),
   createProductBtn: document.getElementById("createProductBtn"),
+  cancelProductCreateModalBtn: document.getElementById("cancelProductCreateModalBtn"),
   productCreateStoreSelect: document.getElementById("productCreateStoreSelect"),
   productUpdateForm: document.getElementById("productUpdateForm"),
   productSelectedSummary: document.getElementById("productSelectedSummary"),
@@ -605,7 +606,8 @@ function renderSession() {
 
   refs.totpGuidePanel.innerHTML = `
     <div class="detail-line"><span>Opcion principal</span><strong>OTP con Google Authenticator.</strong></div>
-    <div class="detail-line"><span>Necesitas</span><strong>Celular con Google Authenticator instalado.</strong></div>
+    <div class="detail-line"><span>Necesitas</span><strong>Descargar Google Authenticator en tu celular.</strong></div>
+    <div class="detail-line"><span>Uso</span><strong>Escanea el QR y escribe el codigo de 6 digitos para validar el OTP.</strong></div>
     <div class="detail-line"><span>Si ya esta activo</span><strong>No generes otro QR; solo usa el codigo de la app al entrar.</strong></div>
   `;
 }
@@ -641,6 +643,9 @@ function getCurrentMfaRequirement() {
 }
 
 function renderAuthRequirements() {
+  if (!refs.authRequirementsPanel) {
+    return;
+  }
   if (!state.bootstrap) {
     refs.authRequirementsPanel.innerHTML = "<p>Cargando reglas...</p>";
     return;
@@ -844,9 +849,7 @@ function showProductAction(action) {
   refs.productDeleteForm.classList.add("hidden");
 
   const target =
-    action === "create"
-      ? refs.productCreateForm
-      : action === "update"
+    action === "update"
         ? refs.productUpdateForm
         : null;
   target?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1820,6 +1823,8 @@ async function handleCreateProduct(event) {
       }),
     });
     appendLog("Producto creado", result);
+    refs.productCreateForm.reset();
+    showProductAction(null);
     await loadProducts();
   } catch (error) {
     appendLog("Error creando producto", error);
@@ -2052,6 +2057,11 @@ function bindEvents() {
     }
     showProductAction("create");
     setNotice("Completa los datos para crear un producto.", "info");
+  });
+  refs.cancelProductCreateModalBtn.addEventListener("click", () => {
+    refs.productCreateForm.reset();
+    showProductAction(null);
+    setNotice("Creacion de producto cancelada.", "info");
   });
   refs.productCreateForm.addEventListener("submit", handleCreateProduct);
   refs.productUpdateForm.addEventListener("submit", handleUpdateProduct);

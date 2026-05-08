@@ -233,7 +233,7 @@
             </article>
           </div>
 
-          <div class="cards-grid two-columns">
+          <div class="cards-grid">
             <article class="card">
               <div class="panel-header">
                 <div>
@@ -242,16 +242,6 @@
                 </div>
               </div>
               <div id="totpGuidePanel" class="detail-stack"></div>
-            </article>
-
-            <article class="card">
-              <div class="panel-header">
-                <div>
-                  <p class="module-kicker">Problemas comunes</p>
-                  <h3>Por qué puede fallar</h3>
-                </div>
-              </div>
-              <div id="authRequirementsPanel" class="detail-stack"></div>
             </article>
           </div>
         </section>
@@ -582,7 +572,7 @@
             </div>
 
             <div class="cards-grid inner-grid product-actions-area">
-              <form id="productCreateForm" class="stack-form soft-panel">
+              <form id="productCreateForm" class="stack-form soft-panel product-create-modal">
                 <p class="module-kicker">Crear</p>
                 <label><span>Nombre</span><input name="name" type="text" required /></label>
                 <label><span>Descripción</span><textarea name="description" rows="4" required></textarea></label>
@@ -594,7 +584,10 @@
                   <input name="isPremium" type="checkbox" />
                   <span>Producto premium</span>
                 </label>
-                <button type="submit">Crear producto</button>
+                <div class="modal-actions">
+                  <button id="cancelProductCreateModalBtn" class="ghost-button" type="button">Cancelar</button>
+                  <button type="submit">Crear producto</button>
+                </div>
               </form>
 
               <form id="productUpdateForm" class="stack-form soft-panel">

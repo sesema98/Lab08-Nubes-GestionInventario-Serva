@@ -690,6 +690,31 @@ button:disabled {
   align-items: start;
 }
 
+.product-create-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1000;
+  width: min(520px, calc(100vw - 28px));
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow:
+    0 0 0 100vmax rgba(15, 23, 42, 0.42),
+    0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .technical-field {
   display: none;
 }
